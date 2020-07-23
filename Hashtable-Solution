@@ -1,0 +1,74 @@
+#example 1
+%%writefile email.txt
+2015-01-01,joe@signifyd.com,PURCHASE
+2015-02-01,fraudster@fraud.com,FRAUD_REPORT
+2015-02-03,fraudster@fraud.com,FRAUD_REPORT
+2015-02-10,joe@signifyd.com,PURCHASE
+2015-02-14,fraudster@fraud.com,PURCHASE
+2015-03-15,joe@signifyd.com,PURCHASE
+2015-05-01,joe@signifyd.com,PURCHASE
+2015-10-01,joe@signifyd.com,PURCHASE
+
+#example 2
+#%%writefile email.txt
+#2015-01-01,joe@signifyd.com,PURCHASE
+#2015-04-01,joe@signifyd.com,PURCHASE
+#2015-04-02,joe@signifyd.com,PURCHASE
+
+#example 3
+%%writefile email.txt
+#2015-01-01,joe@signifyd.com,PURCHASE
+#2015-03-31,joe@signifyd.com,PURCHASE
+#2015-04-01,joe@signifyd.com,PURCHASE
+#2015-04-03,joe@signifyd.com,PURCHASE
+
+#!/bin/python3
+
+import math
+import re
+from datetime import datetime
+
+file = open("email.txt")
+file_list = file.readlines()
+print(file_list)
+
+user_hist = {}
+
+for line in file_list:
+    #generate purchase and fraud history list per each user
+    user_name = line.split(',',2)[1]
+    if user_name not in user_hist:
+        if "PURCHASE" in line:
+            user_hist[user_name] = {"purchase_history":[line.split(',',2)[0]], "fraud_history":[]}
+            print(line.split(',',2)[0] + "," + user_name + "," + "NO_HISTORY")
+        elif "FRAUD_REPORT" in line:
+            user_hist[user_name] = {"fraud_history":[line.split(',',2)[0]], "purchase_history":[]}
+            
+    # Review each line for output generation and history storage
+    elif "PURCHASE" in line:
+        # store the line in history
+        user_hist[user_name]['purchase_history'].append(line.split(',',2)[0])
+        
+        #check if there is a history of fraud
+        fraud_count = len(user_hist[user_name]['fraud_history'])
+        purchase_count = len(user_hist[user_name]['purchase_history'])
+        if fraud_count >= 1:
+            print(line.split(',',2)[0] + "," + user_name + "," + "FRAUD_HISTORY:" + str(fraud_count))    
+        else:
+            # has the purchase been made within 90 days?
+            line_date = datetime.strptime(line.split(',',2)[0], '%Y-%m-%d')
+            period = []
+            for date in user_hist[user_name]['purchase_history']:
+                date = datetime.strptime(date, '%Y-%m-%d')
+                diff = line_date - date
+                period.append(diff.days)
+            good_history_count = len([num for num in period if num > 90])
+            unconfirmed_count = len([num for num in period if num < 90]) - 1
+            if any(i > 90 for i in period) and fraud_count == 0:
+                purchase_count = len(user_hist[user_name]['purchase_history'])
+                print(line.split(',',2)[0] + "," + user_name + "," + "GOOD_HISTORY:" + str([purchase_count]))
+            else:
+                print(line.split(',',2)[0] + "," + user_name + "," + "UNCONFIRMED_HISTORY:" + str(unconfirmed_count))
+
+    else:
+        user_hist[user_name]['fraud_history'].append(line.split(',',2)[0])
